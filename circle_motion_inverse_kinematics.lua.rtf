@@ -1,0 +1,93 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2865
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 sim = require 'sim'\
+\
+function sysCall_init()\
+\
+    base   = sim.getObject('/ErgoJr')\
+    target = sim.getObject('/ErgoJr/IK_target')\
+\
+    -- joints (m1..m6)\
+    joints = \{\
+        sim.getObject('/ErgoJr/m1'),\
+        sim.getObject('/ErgoJr/m1/m2'),\
+        sim.getObject('/ErgoJr/m1/m2/m3'),\
+        sim.getObject('/ErgoJr/m1/m2/m3/m4'),\
+        sim.getObject('/ErgoJr/m1/m2/m3/m4/m5'),\
+        sim.getObject('/ErgoJr/m1/m2/m3/m4/m5/m6')\
+    \}\
+\
+    -- ukljucujemo motore da drze ruku\
+    maxForce = 300\
+\
+    for i=1,#joints do\
+        sim.setJointMode(joints[i],sim.jointmode_force,0)\
+        sim.setObjectInt32Param(joints[i],sim.jointintparam_motor_enabled,1)\
+        sim.setObjectInt32Param(joints[i],sim.jointintparam_ctrl_enabled,1)\
+        sim.setJointMaxForce(joints[i],maxForce)\
+    end\
+\
+    -- pocetni polozaj lampe ce biti centar kruga\
+    lamp = sim.getObject('/ErgoJr/m1/long_U_respondable/m2/s1/m3/s2/m4/s3/m5/s4/m6/lamp_respondable/lamp_visual')\
+\
+    -- u WORLD koordinatama\
+    center = sim.getObjectPosition(lamp, -1)\
+    -- smanjujemo Y koordinatu odnosno odaljavamo kruznicu od robota, jer nije redudantan za blisku ravan u krajnjim donjim tackama\
+    center[2] = center[2]-0.05\
+    \
+    -- precnik kruga\
+    radius = 0.05\
+    numPoints = 7\
+    -- koliko ce se zadrzati u tackama\
+    holdTime = 3.0\
+\
+    points = \{\}\
+\
+    -- krug u WORLD XZ ravni (Y konstantan = center[2]):\
+    for i=0,numPoints-1 do\
+        local a = (2*math.pi/numPoints)*i\
+        local x = center[1] + radius*math.cos(a)\
+        local y = center[2]\
+        local z = center[3] + radius*math.sin(a)\
+        points[#points+1] = \{x,y,z\}\
+\
+        print(string.format("Point %d (WORLD XZ): x=%.4f y=%.4f z=%.4f", i+1, x, y, z))\
+    end\
+\
+\
+    math.randomseed(sim.getSystemTime()*100000)\
+    idx = math.random(1,numPoints)\
+\
+    sim.setObjectPosition(target,-1,points[idx])\
+\
+    lastSwitch = sim.getSimulationTime()\
+end\
+\
+\
+function sysCall_actuation()\
+\
+    local t = sim.getSimulationTime()\
+\
+    if t-lastSwitch > holdTime then\
+\
+        local right = (math.random(0,1)==1)\
+\
+        if right then\
+            idx = idx+1\
+            if idx>numPoints then idx=1 end\
+        else\
+            idx = idx-1\
+            if idx<1 then idx=numPoints end\
+        end\
+\
+        sim.setObjectPosition(target,-1,points[idx])\
+\
+        lastSwitch = t\
+    end\
+end\
+}
